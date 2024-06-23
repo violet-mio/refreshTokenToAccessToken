@@ -15,8 +15,11 @@
             font-family: Arial, sans-serif;
         }
         .center {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             width: 400px; /* Make the container wider */
-            padding: 50px;
+            padding-bottom: 30px;
             background: white;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             text-align: center;
@@ -28,7 +31,7 @@
         .input-wrapper {
             position: relative;
             margin-bottom: 25px;
-            width: 100%; /* Make sure wrapper takes full width */
+            width: 90%;
         }
         .input-wrapper input {
             width: 100%; /* Ensure full width of input */
@@ -57,7 +60,6 @@
             color: #0f9977;
         }
         button {
-            width: 100%; /* Match input width */
             padding: 15px 20px;
             border: none;
             border-radius: 8px; /* Rounded corners */
@@ -82,6 +84,8 @@
             height: 80px; /* Increased height */
             font-size: 16px; /* Larger font size */
             box-sizing: border-box; /* Include padding and border in width */
+            width: 90%;
+            /* margin: 25px auto 0; */
         }
         .copy-message {
             display: none; /* 默认不显示 */
@@ -99,43 +103,71 @@
             border-radius: 8px;
             z-index: 10;
         }
+        #go-share-token {
+            margin-top: 20px;
+        }
+        button[disabled] {
+            background-color: #ccc;
+            color: #666;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
     <div class="center">
         <h2>Login to Access</h2>
-        <form id="tokenForm">
-            <div class="input-wrapper">
-                <input type="text" id="refresh_token" name="refresh_token" placeholder=" " required>
-                <label for="refresh_token">Refresh Token</label>
-            </div>
-            <button type="button" onclick="getToken()">Get Access Token</button>
-        </form>
+        <div class="input-wrapper">
+            <input type="text" id="refresh_token" name="refresh_token" placeholder=" " required>
+            <label for="refresh_token">Refresh Token</label>
+        </div>
+        <button type="button" onclick="getToken()">Get Access Token</button>
         <div id="access_token"></div>
+        <button id="go-share-token" type="button" onclick="goShareToken()">Go Share Token</button>
     </div>
     <script>
         const TOKEN_URL = 'https://token.oaifree.com/api/auth/refresh'; // Extracted URL
+        let accessTokenEl = null;
+        let refreshTokenEl = null;
+        let goShareTokenEl = null
+        let accessToken = '';
+        let accessTokenErrorMessage = ''
+        init();
+
+        function init() {
+            accessTokenEl = document.getElementById('access_token');
+            accessTokenEl.addEventListener('click', () => {
+                copyToClipboard();
+            });
+            refreshTokenEl = document.getElementById('refresh_token')
+            goShareTokenEl = document.getElementById('go-share-token')
+        }
 
         async function getToken() {
-            const refreshToken = document.getElementById('refresh_token').value;
+            const refreshToken = refreshTokenEl.value;
+            accessTokenErrorMessage = ''
             const response = await fetch(TOKEN_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
                 },
                 body: `refresh_token=${encodeURIComponent(refreshToken)}`
-            });
+            })
             const result = await response.json();
-            const accessTokenEl = document.getElementById('access_token');
-            accessTokenEl.innerText = result.access_token;
-            accessTokenEl.addEventListener('click', () => {
-                copyToClipboard(result.access_token);
-            });
+            // 获取到的数据, 成功则显示access_token, 失败则提示（错误信息优先级：detail>中文错误）
+            if(result.access_token) {
+                accessTokenErrorMessage = ''
+                goShareTokenEl.removeAttribute("disabled")
+            } else {
+                accessTokenErrorMessage = result.detail || '获取失败，请检查Refresh Token是否正确'
+                goShareTokenEl.setAttribute("disabled", "disabled")
+            }
+            accessToken = result.access_token
+            accessTokenEl.innerText = result.access_token || accessTokenErrorMessage
         }
 
-        function copyToClipboard(text) {
+        function copyToClipboard() {
             const textarea = document.createElement('textarea');
-            textarea.value = text;
+            textarea.value = accessToken;
             document.body.appendChild(textarea);
             textarea.select();
             document.execCommand('copy');
@@ -152,6 +184,17 @@
                 copyMessageEl.style.display = 'none';
                 accessTokenEl.removeChild(copyMessageEl);
             }, 1000);
+        }
+        function goShareToken() {
+            console.log('goShareToken')
+            if (!accessToken) {
+                alert('请先获取Access Token');
+                return;
+            }
+            copyToClipboard();
+            const shareTokenURL = `https://chat.oaifree.com/token`
+            // 打开新窗口
+            window.open(shareTokenURL, '_blank');
         }
     </script>
 </body>
